@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OmniCalc — Web Calculator</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ─── LAYOUT ─────────────────────────────────────────── */
+    .app { display:flex; height:100vh; overflow:hidden; }
+
+    /* ─── SIDEBAR ────────────────────────────────────────── */
+    .sidebar {
+      width: 220px; min-width:220px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      padding: 16px 0;
+    }
+    .logo {
+      font-size: 18px; font-weight: 700;
+      color: var(--accent);
+      padding: 0 20px 20px;
+      letter-spacing: -0.5px;
+    }
+    .logo span { color: var(--text-primary); }
+    .nav-section { padding: 12px 20px 4px; }
+    .nav-section .label {
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase; color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 20px; cursor: pointer;
+      color: var(--text-secondary); font-size: 13.5px;
+      border-left: 3px solid transparent;
+      transition: all var(--transition);
+    }
+    .nav-item:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+    .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--bg-tertiary); }
+    .nav-item .icon { font-size: 15px; width: 20px; text-align:center; }
+    .spacer { flex: 1; }
+    .nav-footer {
+      padding: 12px 20px;
+      font-size: 11px; color: var(--text-muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ─── MAIN ───────────────────────────────────────────── */
+    .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+    .topbar {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .section-title { font-size: 16px; font-weight: 600; }
+    .derev-toggle {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--text-secondary);
+    }
+    .toggle-wrap { position:relative; width:40px; height:22px; }
+    .toggle-wrap input { opacity:0; width:0; height:0; }
+    .toggle-slider {
+      position: absolute; inset:0;
+      background: var(--bg-tertiary); border-radius: 22px;
+      cursor: pointer; transition: var(--transition);
+    }
+    .toggle-slider::before {
+      content:''; position:absolute;
+      width: 16px; height: 16px; left:3px; top:3px;
+      background: var(--text-secondary); border-radius:50%;
+      transition: var(--transition);
+    }
+    .toggle-wrap input:checked + .toggle-slider { background: var(--accent); }
+    .toggle-wrap input:checked + .toggle-slider::before { transform:translateX(18px); background:#fff; }
+
+    .content { flex:1; overflow-y:auto; padding:24px; }
+
+    /* ─── DISPLAY ────────────────────────────────────────── */
+    .calc-display {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .display-expression {
+      font-size: 14px; color: var(--text-muted);
+      text-align: right;
+      min-height: 20px;
+      word-break: break-all;
+      font-family: var(--font-mono);
+    }
+    .display-result {
+      font-size: 42px; font-weight: 700;
+      color: var(--text-primary);
+      text-align: right;
+      min-height: 54px;
+      word-break: break-all;
+      font-family: var(--font-mono);
+      transition: color var(--transition);
+    }
+    .display-result.error { color: var(--danger); font-size: 22px; }
+
+    /* ─── PANELS ─────────────────────────────────────────── */
+    .panel-physics { display:none; }
+    .panel-physics.active { display:block; }
+
+    /* ─── CALCULATOR GRID ────────────────────────────────── */
+    .calc-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .calc-grid.sci { grid-template-columns: repeat(5, 1fr); }
+    .calc-grid.matrix { grid-template-columns: repeat(3, 1fr); gap:4px; }
+    .calc-grid.alg { grid-template-columns: repeat(6, 1fr); }
+    .calc-grid.eq { grid-template-columns: repeat(4, 1fr); }
+
+    /* ─── BUTTONS ────────────────────────────────────────── */
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border-radius: var(--radius-sm);
+      padding: 13px 10px;
+      font-size: 15px; font-weight: 500;
+      cursor: pointer; transition: all var(--transition);
+      text-align: center; user-select: none;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .btn:hover { background: var(--bg-hover); border-color: var(--accent); }
+    .btn:active { transform: scale(0.95); }
+    .btn.op { color: var(--accent); border-color: rgba(108,99,255,.3); }
+    .btn.op:hover { background: rgba(108,99,255,.12); }
+    .btn.fn { font-size: 12px; color: var(--warning); border-color: rgba(255,179,71,.3); }
+    .btn.fn:hover { background: rgba(255,179,71,.1); }
+    .btn.wide { grid-column: span 2; }
+    .btn.graph-btn { background: rgba(61,214,140,.1); border-color: rgba(61,214,140,.3); color: var(--success); }
+    .btn.graph-btn:hover { background: rgba(61,214,140,.2); border-color: var(--success); }
+    .btn.eq-btn { color: var(--accent); background: rgba(108,99,255,.08); }
+    .btn.eq-solve { background: var(--accent); color:#fff; border-color: var(--accent); font-weight:700; }
+    .btn.eq-solve:hover { background: var(--accent-hover); }
+    .btn.eq-clear { background: var(--bg-tertiary); color: var(--text-muted); }
+    .btn.mat-op { background: rgba(255,76,111,.1); border-color: rgba(255,76,111,.3); color: var(--danger); }
+    .btn.mat-solve { background: var(--success); color:#000; border-color: var(--success); font-weight:700; }
+
+    /* ─── INPUT ROWS ─────────────────────────────────────── */
+    .input-row {
+      display: flex; gap: 10px; align-items: center;
+      margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .input-row label {
+      font-size: 12px; color: var(--text-secondary);
+      white-space: nowrap; min-width: 80px;
+    }
+    .form-input {
+      flex:1; min-width: 100px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      padding: 8px 12px;
+      font-size: 14px; font-family: var(--font-mono);
+      transition: border-color var(--transition);
+      outline: none;
+    }
+    .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .form-select {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      padding: 8px 10px;
+      font-size: 13px;
+      outline: none; cursor: pointer;
+    }
+    .form-select:focus { border-color: var(--accent); }
+
+    /* ─── RESULT BOXES ───────────────────────────────────── */
+    .result-box {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-top: 12px;
+      min-height: 40px;
+    }
+    .result-box .rlabel {
+      font-size: 11px; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: .8px;
+      margin-bottom: 6px;
+    }
+    .result-box .rval {
+      font-size: 20px; font-weight: 600;
+      color: var(--success); font-family: var(--font-mono);
+      word-break: break-all;
+    }
+    .result-box .rval.error-val { color: var(--danger); }
+
+    /* ─── MATRIX INPUT ───────────────────────────────────── */
+    .matrix-wrapper {
+      display: grid; gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      margin-bottom: 12px;
+    }
+    .matrix-input-box {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+    }
+    .matrix-input-box .mbox-title {
+      font-size: 12px; color: var(--text-muted);
+      margin-bottom: 10px; font-weight:600;
+    }
+    .matrix-grid {
+      display: grid; gap: 4px;
+    }
+
+    /* ─── HISTORY ────────────────────────────────────────── */
+    .history-panel {
+      position: fixed; right: 0; top:0;
+      width: 280px; height:100vh;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border);
+      padding: 16px;
+      overflow-y: auto;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    }
+    .history-panel.open { transform: translateX(0); }
+    .history-title { font-size: 14px; font-weight:600; margin-bottom:12px; }
+    .history-item {
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-tertiary);
+      margin-bottom: 6px; cursor:pointer;
+      border: 1px solid transparent;
+      transition: border-color var(--transition);
+    }
+    .history-item:hover { border-color: var(--border); }
+    .history-item .he { font-size:12px; color:var(--text-muted); }
+    .history-item .hr { font-size:13px; font-weight:600; color:var(--text-primary); font-family:var(--font-mono); }
+
+    /* ─── HIST BTN ───────────────────────────────────────── */
+    .hist-btn {
+      background:none; border:1px solid var(--border);
+      color: var(--text-secondary);
+      width:36px; height:36px;
+      border-radius: var(--radius-sm);
+      cursor:pointer; font-size:16px;
+      transition: all var(--transition);
+    }
+    .hist-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+     /* (graph.html is a separate page — styles for it live in graph.html inline stylesheet) */
+
+     @media (max-width: 768px) {
+       .sidebar { display:none; }
+       .calc-grid { grid-template-columns: repeat(4,1fr)!important; }
+     }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     CALCULATOR PAGE
+═══════════════════════════════════════════════════ -->
+<div class="app" id="calcApp">
+  <!-- sidebar -->
+  <aside class="sidebar">
+    <div class="logo">&#x25A0; <span>OmniCalc</span></div>
+
+    <div class="nav-section">
+      <div class="label">Core</div>
+      <div class="nav-item active" data-panel="basic"><span class="icon">&#x2299;</span> Standard</div>
+      <div class="nav-item" data-panel="scientific"><span class="icon">&#x2118;</span> Scientific</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="label">Math</div>
+      <div class="nav-item" data-panel="calculus"><span class="icon">&#x2202;</span> Calculus</div>
+      <div class="nav-item" data-panel="algebra"><span class="icon">&#x2A09;</span> Algebra</div>
+      <div class="nav-item" data-panel="equations"><span class="icon">&#x225C;</span> Equations</div>
+      <div class="nav-item" data-panel="linearalg"><span class="icon">&#x25A1;</span> Linear Algebra</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="label">Tools</div>
+      <div class="nav-item" data-panel="currency"><span class="icon">&#x20BF;</span> Currency</div>
+      <a href="graph.html" class="nav-item" style="background:rgba(61,214,140,.07);border-left:3px solid var(--success);color:var(--success);text-decoration:none">
+        <span class="icon">&#x2B21;</span> Graph
+      </a>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="nav-footer">OmniCalc v1.0 &middot; Pure Client-Side</div>
+  </aside>
+
+  <!-- main -->
+  <main class="main">
+    <div class="topbar">
+      <span class="section-title" id="sectionTitle">Standard</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="derev-toggle">
+          <div class="toggle-wrap"><input type="checkbox" id="degRadToggle"><label class="toggle-slider" for="degRadToggle"></label></div>
+          <span id="degRadLabel">DEG</span>
+        </div>
+        <button class="hist-btn" id="toggleHistory" title="History">&#x2630;</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ─── DISPLAY ─── -->
+      <div class="calc-display">
+        <div class="display-expression" id="exprDisplay"></div>
+        <div class="display-result" id="resultDisplay">0</div>
+      </div>
+
+      <!-- ═══ STANDARD ═══ -->
+      <div class="panel-physics active" id="panel-basic">
+        <div class="calc-grid">
+          <button class="btn op" data-action="clear">AC</button>
+          <button class="btn op" data-action="bracket-open">&#x28;</button>
+          <button class="btn op" data-action="bracket-close">&#x29;</button>
+          <button class="btn op" data-action="div">&#x00F7;</button>
+          <a href="graph.html" class="btn graph-btn" style="grid-column:span 2;text-decoration:none;justify-content:center">&#x2B21; Graph</a>
+
+          <button class="btn" data-num>7</button>
+          <button class="btn" data-num>8</button>
+          <button class="btn" data-num>9</button>
+          <button class="btn op" data-action="mult">&#x00D7;</button>
+          <button class="btn" id="histBtnDirect" style="background:none;border:none;font-size:13px;color:var(--text-secondary)">Hist</button>
+
+          <button class="btn" data-num>4</button>
+          <button class="btn" data-num>5</button>
+          <button class="btn" data-num>6</button>
+          <button class="btn op" data-action="minus">&#x2212;</button>
+
+          <button class="btn" data-num>1</button>
+          <button class="btn" data-num>2</button>
+          <button class="btn" data-num>3</button>
+          <button class="btn op" data-action="plus">+</button>
+
+          <button class="btn btn-wide" data-num>0</button>
+          <button class="btn" data-action="decimal">.</button>
+          <button class="btn op" data-action="equals">=</button>
+        </div>
+      </div>
+
+      <!-- ═══ SCIENTIFIC ═══ -->
+      <div class="panel-physics" id="panel-scientific">
+        <div class="calc-grid sci">
+          <button class="btn fn" data-sc>sin</button>
+          <button class="btn fn" data-sc>cos</button>
+          <button class="btn fn" data-sc>tan</button>
+          <button class="btn fn" data-sc>ln</button>
+          <button class="btn fn" data-sc>log</button>
+
+          <button class="btn fn" data-sc>asin</button>
+          <button class="btn fn" data-sc>acos</button>
+          <button class="btn fn" data-sc>atan</button>
+          <button class="btn fn" data-sc>sqrt</button>
+          <button class="btn fn" data-sc>cbrt</button>
+
+          <button class="btn fn" data-sc>x^2</button>
+          <button class="btn fn" data-sc>x^y</button>
+          <button class="btn fn" data-sc>10^x</button>
+          <button class="btn fn" data-sc>e^x</button>
+          <button class="btn fn" data-sc>n!</button>
+
+          <button class="btn" data-sc>PI</button>
+          <button class="btn" data-sc>e</button>
+          <button class="btn" data-sc>abs</button>
+          <button class="btn" data-sc>sign</button>
+          <button class="btn fn" data-sc>DEG</button>
+
+          <button class="btn fn" data-sc>sinh</button>
+          <button class="btn fn" data-sc>cosh</button>
+          <button class="btn fn" data-sc>tanh</button>
+          <button class="btn fn" data-sc>1/x</button>
+          <button class="btn fn" data-sc>mod</button>
+        </div>
+      </div>
+
+      <!-- ═══ CALCULUS ═══ -->
+      <div class="panel-physics" id="panel-calculus">
+        <div class="form-row" style="margin-bottom:16px">
+          <div class="input-row">
+            <label>f(x) =</label>
+            <input class="form-input" id="calcFx" type="text" placeholder="e.g. x^3 + 2*x^2 - x + 1" style="flex:2;min-width:300px"/>
+            <label>&nbsp; at x =</label>
+            <input class="form-input" id="calcX0" type="number" placeholder="x₀" style="width:100px"/>
+          </div>
+        </div>
+
+        <div class="calc-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+          <button class="btn mat-op" id="btnDerivative">d/dx f(x)</button>
+          <button class="btn mat-op" id="btnSecondDerivative">d²/dx² f(x)</button>
+          <button class="btn mat-op" id="btnPartialDeriv">∂f/∂x</button>
+
+          <button class="btn mat-op" id="btnIntegralDef">∫ₐᵇ f(x) dx</button>
+          <button class="btn mat-op" id="btnIntegralIndef">∫ f(x) dx</button>
+          <button class="btn mat-op" id="btnLimit">lim(x→a)</button>
+        </div>
+
+        <div class="form-row" style="margin-bottom:16px">
+          <div class="input-row" style="gap:12px">
+            <label style="min-width:40px">a =</label>
+            <input class="form-input" id="calcA" type="number" placeholder="lower bound" style="width:130px"/>
+            <label style="min-width:40px">b =</label>
+            <input class="form-input" id="calcB" type="number" placeholder="upper bound" style="width:130px"/>
+          </div>
+        </div>
+
+        <div class="result-box" id="calcResult">
+          <div class="rlabel">Result</div>
+          <div class="rval" id="calcResultVal">—</div>
+        </div>
+        <div class="result-box" id="calcSteps" style="margin-top:10px">
+          <div class="rlabel">Steps</div>
+          <div class="rval" id="calcStepsVal" style="font-size:14px;color:var(--text-secondary)">—</div>
+        </div>
+      </div>
+
+      <!-- ═══ ALGEBRA ═══ -->
+      <div class="panel-physics" id="panel-algebra">
+        <div class="input-row">
+          <label>Expression:</label>
+          <input class="form-input" id="algExpr" type="text" placeholder="e.g. x^2 + 6*x + 9,  (x+1)^3" style="flex:2"/>
+          <label>Variable:</label>
+          <input class="form-input" id="algVar" type="text" value="x" style="width:60px"/>
+        </div>
+        <div class="calc-grid alg" style="margin-bottom:14px">
+          <button class="btn mat-op" id="algExpand">Expand</button>
+          <button class="btn mat-op" id="algFactor">Factor</button>
+          <button class="btn mat-op" id="algSimplify">Simplify</button>
+          <button class="btn mat-op" id="algDerivative">d/dx</button>
+          <button class="btn mat-op" id="algEvaluateAt">f(a)</button>
+          <button class="btn mat-op" id="algPolyDiv">÷ polynomial</button>
+        </div>
+        <div class="result-box" id="algResult">
+          <div class="rlabel">Result</div>
+          <div class="rval" id="algResultVal">—</div>
+        </div>
+      </div>
+
+      <!-- ═══ EQUATIONS ═══ -->
+      <div class="panel-physics" id="panel-equations">
+        <div style="margin-bottom:12px;font-size:13px;color:var(--text-secondary)">
+          Quadratic: ax² + bx + c = 0 &nbsp;·&nbsp; Linear: ax + b = 0
+        </div>
+        <div class="calc-grid eq" style="margin-bottom:14px">
+          <button class="btn fn" id="eqQuadratic">Quadratic Solver</button>
+          <button class="btn fn" id="eqCubic">Cubic Solver</button>
+          <button class="btn fn" id="eqLinear">Linear Solver</button>
+          <button class="btn fn" id="eqSimul">Simultaneous</button>
+        </div>
+
+        <div class="input-row" style="margin-bottom:10px">
+          <label>Coeff a:</label><input class="form-input" id="eqA" type="number" placeholder="a" style="width:90px"/>
+          <label>Coeff b:</label><input class="form-input" id="eqB" type="number" placeholder="b" style="width:90px"/>
+          <label>Coeff c:</label><input class="form-input" id="eqC" type="number" placeholder="c" style="width:90px"/>
+          <label>Coeff d:</label><input class="form-input" id="eqD" type="number" placeholder="d (cubic)" style="width:90px;display:none"/>
+        </div>
+
+        <div class="result-box" id="eqResult">
+          <div class="rlabel">Solutions</div>
+          <div class="rval" id="eqResultVal" style="font-size:16px">—</div>
+        </div>
+
+        <div style="margin-top:16px">
+          <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:8px">Simultaneous Linear Equations</label>
+          <div style="background:var(--bg-secondary);border-radius:var(--radius-md);padding:14px;border:1px solid var(--border)">
+            <div style="font-size:14px;color:var(--text-muted);margin-bottom:12px;font-family:var(--font-mono)">
+              a₁x + b₁y = c₁<br/>
+              a₂x + b₂y = c₂
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+              <input class="form-input" id="sl_a1" type="number" placeholder="a₁" style="width:70px"/><span style="color:var(--text-muted);font-size:20px;align-self:center">x</span>
+              <span style="color:var(--text-muted);font-size:18px;align-self:center">+</span>
+              <input class="form-input" id="sl_b1" type="number" placeholder="b₁" style="width:70px"/><span style="color:var(--text-muted);font-size:20px;align-self:center">y</span>
+              <span style="color:var(--text-muted);font-size:18px;align-self:center">=</span>
+              <input class="form-input" id="sl_c1" type="number" placeholder="c₁" style="width:70px"/>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+              <input class="form-input" id="sl_a2" type="number" placeholder="a₂" style="width:70px"/><span style="color:var(--text-muted);font-size:20px;align-self:center">x</span>
+              <span style="color:var(--text-muted);font-size:18px;align-self:center">+</span>
+              <input class="form-input" id="sl_b2" type="number" placeholder="b₂" style="width:70px"/><span style="color:var(--text-muted);font-size:20px;align-self:center">y</span>
+              <span style="color:var(--text-muted);font-size:18px;align-self:center">=</span>
+              <input class="form-input" id="sl_c2" type="number" placeholder="c₂" style="width:70px"/>
+            </div>
+            <button class="btn mat-solve" style="width:100%;border-radius:var(--radius-sm);padding:10px" id="slSolve">Solve System</button>
+            <div class="result-box" id="slResult" style="margin-top:12px">
+              <div class="rlabel">Solution</div>
+              <div class="rval" id="slResultVal" style="font-size:15px">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ LINEAR ALGEBRA ═══ -->
+      <div class="panel-physics" id="panel-linearalg">
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">
+          Enter matrix elements row by row as comma-separated numbers. Supports 2×2 to 5×5 square matrices.
+        </div>
+
+        <div class="input-row">
+          <label>Size:</label>
+          <select class="form-select" id="matSize" style="width:80px">
+            <option value="2">2×2</option>
+            <option value="3" selected>3×3</option>
+            <option value="4">4×4</option>
+            <option value="5">5×5</option>
+          </select>
+          <label>Operation:</label>
+          <select class="form-select" id="matOp" style="width:180px">
+            <option value="det">Determinant</option>
+            <option value="inv">Inverse</option>
+            <option value="trans">Transpose</option>
+            <option value="trace">Trace</option>
+            <option value="rank">Rank</option>
+            <option value="add">Add with Matrix B</option>
+            <option value="mult">Multiply with Matrix B</option>
+          </select>
+          <button class="btn mat-solve" style="padding:8px 20px" id="matCompute">Compute</button>
+        </div>
+
+        <div class="matrix-wrapper">
+          <div class="matrix-input-box" id="matrixABox">
+            <div class="mbox-title">Matrix A</div>
+            <div class="matrix-grid" id="gridA"></div>
+          </div>
+          <div class="matrix-input-box" id="matrixBBox" style="display:none">
+            <div class="mbox-title">Matrix B</div>
+            <div class="matrix-grid" id="gridB"></div>
+          </div>
+        </div>
+
+        <div class="result-box" id="matResult">
+          <div class="rlabel">Result</div>
+          <div class="rval" id="matResultVal" style="font-size:15px;white-space:pre-wrap">—</div>
+        </div>
+      </div>
+
+      <!-- ═══ CURRENCY CONVERTER ═══ -->
+      <div class="panel-physics" id="panel-currency">
+        <div style="margin-bottom:18px;font-size:13px;color:var(--text-secondary)">
+          Live currency conversion based on USD base rates. Swap currencies with one click.
+        </div>
+        <div class="input-row">
+          <label>Amount:</label>
+          <input class="form-input" id="curAmount" type="number" placeholder="0.00" value="1" style="width:140px"/>
+        </div>
+        <div class="input-row" style="gap:12px;justify-content:center">
+          <div style="text-align:center">
+            <select class="form-select" id="curFrom" style="width:150px;margin-bottom:4px"></select>
+            <div style="font-size:12px;color:var(--accent);font-weight:600" id="curFromLabel">USD</div>
+          </div>
+          <button class="btn" id="curSwap" style="width:42px;height:42px;border-radius:50%;padding:0;flex:none;font-size:20px;align-self:center" title="Swap currencies">&#x21C4;</button>
+          <div style="text-align:center">
+            <select class="form-select" id="curTo" style="width:150px;margin-bottom:4px"></select>
+            <div style="font-size:12px;color:var(--success);font-weight:600" id="curToLabel">EUR</div>
+          </div>
+        </div>
+        <button class="btn mat-solve" id="curConvert" style="width:100%;padding:11px;border-radius:var(--radius-md);margin:12px 0">Convert</button>
+        <div class="result-box" id="curResult">
+          <div class="rlabel">Result</div>
+          <div class="rval" id="curResultVal">—</div>
+          <div class="rlabel" style="margin-top:8px">Rate</div>
+          <div class="rval" id="curResultMeta" style="font-size:14px">—</div>
+        </div>
+        <div class="result-box" style="margin-top:10px">
+          <div class="rlabel">Quick Reference</div>
+          <div id="curRef" style="font-size:12px;color:var(--text-secondary);font-family:var(--font-mono);line-height:1.8"></div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+
+  <!-- history panel -->
+  <div class="history-panel" id="historyPanel">
+    <div class="history-title">Recent History</div>
+    <div id="historyList"></div>
+  </div>
+</div><!-- /app -->
+
+</body>
+</html>

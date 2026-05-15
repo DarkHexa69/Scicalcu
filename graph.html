@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Graph Plotter — OmniCalc</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0f1117; color: #e4e6f0; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #2a2e3e; border-radius: 3px; }
+
+    :root {
+      --bg-primary:#0f1117;--bg-secondary:#1a1d27;--bg-tertiary:#242838;--bg-hover:#2e3348;
+      --text-primary:#e4e6f0;--text-secondary:#9094a8;--text-muted:#5c6078;
+      --accent:#6c63ff;--accent-glow:rgba(108,99,255,.25);--success:#3dd68c;--danger:#ff4c6f;--border:#2a2e3e;
+    }
+
+    /* nav */
+    .graph-nav {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 28px;
+      display: flex; align-items: center; gap: 18px;
+      height: 58px;
+    }
+    .back-btn {
+      background: none; border: 1px solid var(--border);
+      color: var(--text-secondary); border-radius: 6px;
+      padding: 7px 14px; cursor: pointer; font-size: 13px;
+      text-decoration: none; transition: 0.2s;
+    }
+    .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .graph-nav-title { font-size: 16px; font-weight: 600; }
+
+    /* body */
+    .graph-body { display: flex; height: calc(100vh - 58px); overflow: hidden; }
+
+    /* sidebar */
+    .graph-sidebar {
+      width: 320px; min-width: 320px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .s-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; }
+    .s-sub { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .8px;
+      margin-bottom: 12px; margin-top: 20px; }
+    .s-alert { font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 16px; }
+
+    input.form-input {
+      width: 100%; background: var(--bg-tertiary);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text-primary); padding: 8px 12px;
+      font-size: 13px; font-family: 'Fira Code','Consolas',monospace;
+      outline: none; margin-bottom: 10px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input.form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    select.form-select {
+      width: 100%; background: var(--bg-tertiary);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text-primary); padding: 8px 10px;
+      font-size: 13px; outline: none; cursor: pointer;
+      margin-bottom: 10px;
+    }
+    input[type=number] { width: 100%; background: var(--bg-tertiary); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text-primary); padding: 8px 10px; font-size: 13px;
+      font-family: monospace; outline: none; margin-bottom: 6px; }
+    input[type=number]:focus { border-color: var(--accent); }
+
+    /* point list */
+    .coord-header {
+      display: grid; grid-template-columns: 1fr 1fr 28px;
+      gap: 6px; margin-bottom: 6px;
+    }
+    .coord-header span {
+      font-size: 11px; font-weight: 600; color: var(--accent);
+    }
+    .coord-row {
+      display: grid; grid-template-columns: 1fr 1fr 28px;
+      gap: 6px; margin-bottom: 4px; align-items: center;
+    }
+    .point-num {
+      color: var(--text-muted); font-size: 12px;
+      text-align: right; padding-top: 2px;
+    }
+    .btn-del {
+      background: none; border: 1px solid transparent;
+      color: var(--text-muted); cursor: pointer; border-radius: 4px;
+      font-size: 14px; padding: 0 4px;
+      transition: 0.2s;
+    }
+    .btn-del:hover { border-color: var(--danger); color: var(--danger); }
+
+    .btn-add {
+      width: 100%; padding: 10px;
+      background: rgba(108,99,255,.08);
+      border: 1px solid rgba(108,99,255,.3);
+      border-radius: 6px; color: var(--accent);
+      cursor: pointer; transition: 0.2s;
+      font-size: 13px; margin-top: 8px;
+    }
+    .btn-add:hover { background: rgba(108,99,255,.16); }
+    .btn-plot {
+      width: 100%; padding: 11px;
+      background: var(--success); color: #000;
+      border: 1px solid var(--success); border-radius: 6px;
+      cursor: pointer; font-weight: 700; font-size: 14px;
+      margin: 8px 0; transition: 0.2s;
+    }
+    .btn-plot:hover { opacity: 0.88; }
+    .btn-clear {
+      width: 100%; padding: 10px;
+      background: var(--bg-tertiary); color: var(--text-secondary);
+      border: 1px solid var(--border); border-radius: 6px;
+      cursor: pointer; font-size: 13px;
+      transition: 0.2s;
+    }
+    .btn-clear:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* canvas area */
+    .graph-canvas-wrap {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 24px; background: #0b0d14;
+      position: relative;
+    }
+    canvas#graphCanvas {
+      border-radius: 10px; box-shadow: 0 4px 32px rgba(0,0,0,.6);
+      display: block; cursor: crosshair;
+    }
+    .tooltip {
+      position: absolute;
+      background: rgba(26,29,39,.95);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px; font-family: monospace;
+      color: var(--text-primary);
+      pointer-events: none;
+      display: none;
+      z-index: 10;
+    }
+    .coord-dump {
+      margin-top: 12px;
+      font-size: 11px; color: var(--text-muted);
+      font-family: monospace;
+      word-break: break-all;
+      max-height: 120px;
+      overflow-y: auto;
+      background: var(--bg-tertiary);
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    /* info box */
+    .result-box {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .result-box .rlabel {
+      font-size: 10px; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: .8px;
+      margin-bottom: 4px;
+    }
+    .result-box .rval {
+      font-size: 16px; font-weight: 600;
+      color: var(--success);
+      font-family: 'Fira Code','Consolas',monospace;
+    }
+    .result-box .rval.error-val { color: var(--danger); }
+
+    @media (max-width: 700px) {
+      .graph-sidebar { width:100%; min-width:auto; border-right:none; border-bottom:1px solid var(--border); }
+      .graph-body { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- nav bar -->
+<nav class="graph-nav">
+  <a class="back-btn" href="index.html">&#x2190; Back to Calculator</a>
+  <span class="graph-nav-title">Graph Plotter — Coordinate &amp; Function Plotting</span>
+</nav>
+
+<!-- body -->
+<div class="graph-body">
+
+  <!-- ─── SIDEBAR ─── -->
+  <div class="graph-sidebar">
+    <div class="s-title">&#x2B21; Graph Plotter</div>
+
+    <!-- ── Point Plotting ── -->
+    <div class="s-sub">Point Plotting</div>
+    <div class="s-alert">Add X–Y coordinates and plot them as dots. You can also plot a continuous function.</div>
+    <div class="coord-header">
+      <span>X</span><span>Y</span><span></span>
+    </div>
+    <div id="pointList"></div>
+
+    <div style="display:flex;gap:8px">
+      <button class="btn-add" id="btnAddPoint">+ Add Point</button>
+    </div>
+
+    <!-- ── Function Mode ── -->
+    <div class="s-sub">Function Plotting</div>
+    <input class="form-input" id="funcExpr" type="text"
+      placeholder="f(x) = e.g. x^2, sin(x), log(x)" />
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div>
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">x min</label>
+        <input type="number" id="xRangeMin" value="-10" />
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">x max</label>
+        <input type="number" id="xRangeMax" value="10" />
+      </div>
+    </div>
+
+    <div style="display:flex;gap:4px;margin-bottom:12px">
+      <select class="form-select" id="colorPicker" style="flex:1">
+        <option value="#6c63ff">Purple</option>
+        <option value="#3dd68c">Green</option>
+        <option value="#ff4c6f">Pink</option>
+        <option value="#ffb347">Orange</option>
+        <option value="#47d4ff">Cyan</option>
+        <option value="#fff">White</option>
+      </select>
+      <select class="form-select" id="lineWidthPicker" style="width:70px">
+        <option value="1.5">1.5px</option>
+        <option value="2.5">2.5px</option>
+        <option value="3.5">3.5px</option>
+      </select>
+    </div>
+
+    <button class="btn-plot" id="btnPlotFunc">&#x2B21; Plot Function</button>
+    <button class="btn-clear" id="btnClearAll">Clear All</button>
+
+    <!-- point list dump -->
+    <div class="coord-dump" id="coordDump"></div>
+
+    <!-- stats -->
+    <div class="result-box" style="margin-top:12px">
+      <div class="rlabel">Statistics</div>
+      <div class="rval" id="statVal" style="font-size:13px;color:var(--text-secondary);overflow:visible;word-break:break-all">
+        —
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.6">
+      * Click and drag on the canvas to pan.<br/>
+      * Scroll to zoom in/out.<br/>
+      * Hover to see cursor coordinates.
+    </div>
+  </div>
+
+  <!-- ─── CANVAS ─── -->
+  <div class="graph-canvas-wrap">
+    <canvas id="graphCanvas" width="820" height="620"></canvas>
+    <div class="tooltip" id="tooltip">x: — &nbsp; y: —</div>
+  </div>
+</div>
+
+<script src="graph.js"></script>
+</body>
+</html>
